@@ -174,7 +174,7 @@ app.post("/certificate/:id/activate", async (req, res) => {
     }
     certificate.isActive = true;
     await certificate.save();
-    await externalNotifier.notify(certificate, true);
+    await externalNotifier.notify(certificate.dataValues.id, true);
     res.json({ message: "Certificate activated" });
   } catch (error) {
     console.error("Error activating certificate: ", error);
@@ -192,7 +192,7 @@ app.post("/certificate/:id/deactivate", async (req, res) => {
     }
     certificate.isActive = false;
     await certificate.save();
-    await externalNotifier.notify(certificate, false);
+    await externalNotifier.notify(certificate.dataValues.id, false);
     res.json({ message: "Certificate deactivated" });
   } catch (error) {
     console.error("Error deactivating certificate: ", error);
