@@ -4,6 +4,8 @@ import { Sequelize } from "sequelize";
 
 import Customer from "./models/Customer.js";
 import Certificate from "./models/Certificate.js";
+import Surl from "./models/Surl.js";
+import Accession from "./models/Accession.js";
 import externalNotifier from "./externalNotifier.js";
 import {
   DATABASE_NAME,
@@ -196,6 +198,70 @@ app.post("/certificate/:id/deactivate", async (req, res) => {
     res.json({ message: "Certificate deactivated" });
   } catch (error) {
     console.error("Error deactivating certificate: ", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Surl Endpoints
+
+app.post("/surls", async (req, res) => {
+  try {
+    const { longUrl } = req.body;
+    // TODO: Validate longUrl
+    let created = false;
+    let newSurl;
+    while (!created) {
+      const shortUrl = await bcrypt.hash(longUrl, 10);
+      [newSurl, created] = await Surl.findOrCreate({
+        where: { shortUrl },
+        defaults: { shortUrl, longUrl },
+      });
+    }
+    res.json(newSurl);
+  } catch (error) {
+    console.error("Error creating surl: ", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/surls/getURL", async (req, res) => {
+  try {
+    const { shortUrl } = req.body;
+    const surl = await Surl.findOne({ where: { shortUrl } });
+    if (surl === null) {
+      res.status(404).json({ error: "Surl not found" });
+    } else {
+      createAccession(surl.id);
+      res.status(302).redirect(surl.longUrl);
+    }
+  } catch (error) {
+    console.error("Error getting surl: ", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const createAccession = async (surlId) => {
+  Accession.create({ SurlId: surlId });
+}
+
+app.get("/surls/:id/accessions", async (req, res) => {
+  try {
+    const surl = await Surl.findByPk(req.params.id);
+    const accessions = await Accession.findAll({ where: { SurlId: surl.id } });
+    const allTime = accessions.length;
+    const week = accessions.filter(accession => {
+      return new Date(accession.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    }).length;
+    const day = accessions.filter(accession => {
+      return new Date(accession.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000);
+    }).length;
+    res.json({
+      allTime,
+      week,
+      day
+    });
+  } catch (error) {
+    console.error("Error getting accessions: ", error);
     res.status(500).json({ error: error.message });
   }
 });
